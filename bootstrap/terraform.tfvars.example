@@ -1,0 +1,12 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored and never committed.
+#
+# S3 bucket names are globally unique across all AWS accounts.
+# Choose a name that is specific to you, e.g.:
+#   cloud-ops-lab-tfstate-jdoe
+#   cloud-ops-lab-tfstate-2024-abc
+
+aws_region        = "us-east-1"
+project_name      = "cloud-ops-lab"
+state_bucket_name = "cloud-ops-lab-tfstate-REPLACE-ME"
+lock_table_name   = "cloud-ops-lab-tf-locks"
