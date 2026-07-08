@@ -1,6 +1,3 @@
-# Computed once and shared between the ec2 and cloudwatch modules to avoid
-# a circular dependency (ec2 needs the name for the agent config; cloudwatch
-# needs the ec2 instance_id for the alarm dimension).
 locals {
   log_group_name = "/${var.project_name}/${var.environment}/ops"
 }
@@ -18,8 +15,10 @@ module "vpc" {
 module "iam" {
   source = "../../modules/iam"
 
-  project_name = var.project_name
-  environment  = var.environment
+  project_name          = var.project_name
+  environment           = var.environment
+  enable_ops_automation = true
+  dynamodb_table_arn    = module.dynamodb.table_arn
 }
 
 module "ec2" {
@@ -42,4 +41,20 @@ module "cloudwatch" {
   instance_id    = module.ec2.instance_id
   alarm_email    = var.alarm_email
   log_group_name = local.log_group_name
+}
+
+module "dynamodb" {
+  source = "../../modules/dynamodb"
+
+  project_name = var.project_name
+  environment  = var.environment
+}
+
+module "ssm" {
+  source = "../../modules/ssm"
+
+  project_name        = var.project_name
+  environment         = var.environment
+  aws_region          = var.aws_region
+  dynamodb_table_name = module.dynamodb.table_name
 }

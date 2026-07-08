@@ -27,3 +27,18 @@ output "sns_topic_arn" {
   description = "ARN of the SNS alarm notification topic"
   value       = module.cloudwatch.sns_topic_arn
 }
+
+output "dynamodb_table_name" {
+  description = "Name of the DynamoDB ops-logs table"
+  value       = module.dynamodb.table_name
+}
+
+output "ssm_health_check_document" {
+  description = "Name of the SSM health check Run Command document"
+  value       = module.ssm.health_check_document_name
+}
+
+output "ssm_log_event_document" {
+  description = "Name of the SSM log event Run Command document"
+  value       = module.ssm.log_event_document_name
+}
