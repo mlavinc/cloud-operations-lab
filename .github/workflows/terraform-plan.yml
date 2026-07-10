@@ -40,7 +40,7 @@ jobs:
           terraform_version: "~> 1.5"
 
       # continue-on-error so the PR comment is always posted.
-      # The final "Fail if fmt failed" step enforces the check outcome.
+      # The "Fail if fmt failed" step at the end enforces the check outcome.
       - name: Terraform Format Check
         id: fmt
         run: terraform fmt -check -recursive
@@ -57,23 +57,33 @@ jobs:
         run: terraform validate
         working-directory: ${{ env.TF_WORKING_DIR }}
 
-      # continue-on-error so the plan output is posted to the PR even on failure.
-      # The final "Fail if plan failed" step enforces the check outcome.
+      # Output is written to a file via tee so it is available to the comment
+      # step regardless of plan exit code or output size.
+      #
+      # 2>&1        — merge stderr into stdout (captures provider errors too)
+      # tee         — writes to file AND streams to the Actions log simultaneously
+      # PIPESTATUS  — preserves terraform's exit code, not tee's (tee always exits 0)
+      #
+      # continue-on-error so the PR comment is always posted even on failure.
+      # The "Fail if plan failed" step at the end enforces the check outcome.
       - name: Terraform Plan
         id: plan
-        run: terraform plan -var-file="dev.tfvars" -no-color -input=false
+        run: terraform plan -var-file="dev.tfvars" -no-color -input=false 2>&1 | tee /tmp/tfplan.txt; exit ${PIPESTATUS[0]}
         working-directory: ${{ env.TF_WORKING_DIR }}
         continue-on-error: true
 
       - name: Post plan to PR
         uses: actions/github-script@v7
         if: github.event_name == 'pull_request'
-        env:
-          PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const plan = process.env.PLAN_OUTPUT || '(no output captured)';
+            const fs = require('fs');
+
+            const plan = fs.existsSync('/tmp/tfplan.txt')
+              ? fs.readFileSync('/tmp/tfplan.txt', 'utf8')
+              : '(plan did not run — check the init or validate step)';
+
             const truncated = plan.length > 60000
               ? plan.slice(0, 60000) + '\n\n... Output truncated (too large to display in full) ...'
               : plan;
