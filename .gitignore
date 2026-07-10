@@ -9,9 +9,16 @@
 *.tfstate
 *.tfstate.*
 
-# Real variable files - may contain environment-specific values
-# *.tfvars.example is NOT matched by this rule and stays tracked
-*.tfvars
+# terraform.tfvars is auto-loaded by Terraform and is per-developer.
+# It may contain account-specific or sensitive values and is never committed.
+terraform.tfvars
+
+# *.auto.tfvars files are also auto-loaded and follow the same rule.
+*.auto.tfvars
+
+# Named var files (e.g. dev.tfvars, prod.tfvars) ARE committed.
+# They contain environment configuration, are explicitly passed with
+# -var-file=, and are required by CI. They must be in the repository.
 
 # Binary plan output files - environment-specific and potentially sensitive
 *.tfplan
