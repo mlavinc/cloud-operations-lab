@@ -1,0 +1,120 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "environments/dev/**"
+      - "modules/**"
+      - ".github/workflows/terraform-plan.yml"
+
+# id-token: write    — allows the job to request an OIDC token from GitHub.
+# contents: read     — allows actions/checkout to read the repository.
+# pull-requests: write — allows the job to post a comment on the PR.
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    env:
+      TF_WORKING_DIR: environments/dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform init -input=false
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      # Redirect stdout and stderr to a file so the full plan output is
+      # available regardless of output size. PIPESTATUS preserves the exit
+      # code through the pipe so a failed plan still fails the step.
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -var-file="dev.tfvars" -no-color -input=false 2>&1 | tee /tmp/tfplan.txt; exit ${PIPESTATUS[0]}
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        continue-on-error: true
+
+      - name: Post plan to PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+
+            const plan = fs.existsSync('/tmp/tfplan.txt')
+              ? fs.readFileSync('/tmp/tfplan.txt', 'utf8')
+              : '(plan did not run — check the init or validate step)';
+
+            const truncated = plan.length > 60000
+              ? plan.slice(0, 60000) + '\n\n... Output truncated (too large to display in full) ...'
+              : plan;
+
+            const body = [
+              '## Terraform Plan Results',
+              '',
+              '| Step | Status |',
+              '|------|--------|',
+              `| \`terraform fmt\` | ${{ steps.fmt.outcome }} |`,
+              `| \`terraform init\` | ${{ steps.init.outcome }} |`,
+              `| \`terraform validate\` | ${{ steps.validate.outcome }} |`,
+              `| \`terraform plan\` | ${{ steps.plan.outcome }} |`,
+              '',
+              '<details>',
+              '<summary>Show Plan Output</summary>',
+              '',
+              '```',
+              truncated,
+              '```',
+              '',
+              '</details>',
+              '',
+              `> Triggered by @${{ github.actor }} · ${{ github.event_name }} · \`${{ github.ref_name }}\``,
+            ].join('\n');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+      - name: Fail if fmt failed
+        if: steps.fmt.outcome == 'failure'
+        run: |
+          echo "terraform fmt check failed. Run 'terraform fmt -recursive' locally and commit the changes."
+          exit 1
+
+      - name: Fail if plan failed
+        if: steps.plan.outcome == 'failure'
+        run: exit 1

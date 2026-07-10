@@ -17,3 +17,8 @@ output "ci_role_arn" {
   description = "ARN of the GitHub Actions CI IAM role. Add this as a GitHub Actions secret named AWS_CI_ROLE_ARN in your repository settings."
   value       = aws_iam_role.github_ci.arn
 }
+
+output "apply_role_arn" {
+  description = "ARN of the GitHub Actions apply IAM role. Add this as a GitHub Actions secret named AWS_APPLY_ROLE_ARN in your repository settings."
+  value       = aws_iam_role.github_apply.arn
+}

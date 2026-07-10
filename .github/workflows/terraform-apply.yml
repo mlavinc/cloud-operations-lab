@@ -1,0 +1,60 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "environments/dev/**"
+      - "modules/**"
+      - ".github/workflows/terraform-apply.yml"
+
+# id-token: write — allows the job to request an OIDC token from GitHub.
+# contents: read  — allows actions/checkout to read the repository.
+# No pull-requests permission needed — this workflow does not comment on PRs.
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+
+    # Referencing the GitHub Environment named 'dev' does two things:
+    # 1. Enforces the environment's required-reviewer protection rule,
+    #    pausing the job until a designated reviewer manually approves.
+    # 2. Changes the OIDC sub claim from a branch ref to
+    #    'repo:{org}/{repo}:environment:dev', which is the exact value
+    #    the apply IAM role trust policy requires. A workflow that omits
+    #    this declaration gets a different sub and cannot assume the role.
+    environment: dev
+
+    env:
+      TF_WORKING_DIR: environments/dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_APPLY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - name: Terraform Init
+        run: terraform init -input=false
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      # -auto-approve is safe here: the plan was reviewed during the PR,
+      # and manual approval was given through the GitHub Environment gate.
+      # -input=false prevents the job from hanging on unexpected prompts.
+      - name: Terraform Apply
+        run: terraform apply -var-file="dev.tfvars" -auto-approve -input=false
+        working-directory: ${{ env.TF_WORKING_DIR }}
