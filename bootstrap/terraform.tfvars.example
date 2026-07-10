@@ -10,3 +10,5 @@ aws_region        = "us-east-1"
 project_name      = "cloud-ops-lab"
 state_bucket_name = "cloud-ops-lab-tfstate-REPLACE-ME"
 lock_table_name   = "cloud-ops-lab-tf-locks"
+github_org        = "REPLACE-ME"   # your GitHub username or organisation
+github_repo       = "REPLACE-ME"   # repository name only, no org prefix

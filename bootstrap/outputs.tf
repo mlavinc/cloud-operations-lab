@@ -12,3 +12,8 @@ output "lock_table_name" {
   description = "Name of the DynamoDB table used for Terraform state locking. Use this value in environments/dev/backend.tf."
   value       = aws_dynamodb_table.tf_locks.name
 }
+
+output "ci_role_arn" {
+  description = "ARN of the GitHub Actions CI IAM role. Add this as a GitHub Actions secret named AWS_CI_ROLE_ARN in your repository settings."
+  value       = aws_iam_role.github_ci.arn
+}

@@ -20,3 +20,13 @@ variable "lock_table_name" {
   type        = string
   default     = "cloud-ops-lab-tf-locks"
 }
+
+variable "github_org" {
+  description = "GitHub username or organisation that owns the repository. Used to scope the OIDC trust policy so only this account can assume the CI role."
+  type        = string
+}
+
+variable "github_repo" {
+  description = "GitHub repository name (without the org prefix). Combined with github_org to form the OIDC subject condition: repo:{org}/{repo}:*"
+  type        = string
+}
