@@ -120,6 +120,6 @@ EOF
 
   tags = {
     Name      = "${var.project_name}-${var.environment}-ops-instance"
-    Validated = "Sprint5"
+    Validated = "Sprint5-RETRY"
   }
 }
