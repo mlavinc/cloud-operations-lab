@@ -5,9 +5,9 @@
 ![GitHub Actions](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?logo=githubactions)
 ![License](https://img.shields.io/badge/License-Portfolio-blue)
 
-A production-style AWS infrastructure project built to demonstrate Cloud Engineering skills end-to-end: Infrastructure as Code, automated monitoring, operational automation, and a full CI/CD deployment pipeline with manual approval gates.
+An AWS infrastructure project built to demonstrate Cloud Engineering skills end-to-end: Infrastructure as Code, automated monitoring, operational automation, and a full CI/CD deployment pipeline with manual approval gates.
 
-The project was built incrementally in five sprints, each adding a real capability layer. Every design decision follows the same reasoning a Cloud or DevOps engineer would apply on a real team.
+The project was built incrementally in five sprints, each adding a capability layer on top of the last.
 
 ---
 
@@ -67,7 +67,7 @@ The project was built incrementally in five sprints, each adding a real capabili
 
 ## CI/CD Pipeline
 
-The full deployment flow mirrors how a real engineering team operates:
+The full deployment flow:
 
 ```
 Developer pushes code
