@@ -1,0 +1,118 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "environments/dev/**"
+      - "modules/**"
+      - ".github/workflows/terraform-plan.yml"
+
+# id-token: write  — allows the workflow to request an OIDC token from GitHub
+# contents: read   — allows actions/checkout to read the repository
+# pull-requests: write — allows the workflow to post a comment on the PR
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    env:
+      TF_WORKING_DIR: environments/dev
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_CI_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      # continue-on-error so the PR comment is always posted.
+      # The final "Fail if fmt failed" step enforces the check outcome.
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform init -input=false
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      # continue-on-error so the plan output is posted to the PR even on failure.
+      # The final "Fail if plan failed" step enforces the check outcome.
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -var-file="dev.tfvars" -no-color -input=false
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        continue-on-error: true
+
+      - name: Post plan to PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        env:
+          PLAN_OUTPUT: ${{ steps.plan.outputs.stdout }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const plan = process.env.PLAN_OUTPUT || '(no output captured)';
+            const truncated = plan.length > 60000
+              ? plan.slice(0, 60000) + '\n\n... Output truncated (too large to display in full) ...'
+              : plan;
+
+            const body = [
+              '## Terraform Plan Results',
+              '',
+              '| Step | Status |',
+              '|------|--------|',
+              `| \`terraform fmt\` | ${{ steps.fmt.outcome }} |`,
+              `| \`terraform init\` | ${{ steps.init.outcome }} |`,
+              `| \`terraform validate\` | ${{ steps.validate.outcome }} |`,
+              `| \`terraform plan\` | ${{ steps.plan.outcome }} |`,
+              '',
+              '<details>',
+              '<summary>Show Plan Output</summary>',
+              '',
+              '```',
+              truncated,
+              '```',
+              '',
+              '</details>',
+              '',
+              `> Triggered by @${{ github.actor }} · ${{ github.event_name }} · \`${{ github.ref_name }}\``,
+            ].join('\n');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+      - name: Fail if fmt failed
+        if: steps.fmt.outcome == 'failure'
+        run: |
+          echo "terraform fmt check failed. Run 'terraform fmt -recursive' locally and commit the changes."
+          exit 1
+
+      - name: Fail if plan failed
+        if: steps.plan.outcome == 'failure'
+        run: exit 1

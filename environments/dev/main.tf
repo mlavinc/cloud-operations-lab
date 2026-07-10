@@ -58,3 +58,5 @@ module "ssm" {
   aws_region          = var.aws_region
   dynamodb_table_name = module.dynamodb.table_name
 }
+
+# GitHub Actions CI test
